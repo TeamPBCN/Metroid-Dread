@@ -13,8 +13,10 @@ from utils import mkdirs, read_messages, readstrzt
 class FileTypeError(Exception):
     pass
 
+
 class FileVersionError(Exception):
     pass
+
 
 class BinaryTextEntry(object):
     Label = ''
@@ -23,16 +25,27 @@ class BinaryTextEntry(object):
     def __init__(self, lbl, txt):
         self.Label = lbl
         self.Text = txt
-    
+
     def ToBin(self):
         return (self.Label + '\0').encode('ascii') + (self.Text.replace('\n', '|') + '\0').encode('utf-16le')
 
     def ToString(self, fmt):
         return fmt.format(lbl=self.Label, txt=self.Text.replace('|', '\n'))
 
+
 class BinaryText(object):
     Magic = b'BTXT'
     Version = binascii.a2b_hex("01000A00")
+    EXPORT_FMT = '''No.%d
+Label: {lbl}
+－－－－－－－－－－－－－－－－－－－－
+{txt}
+－－－－－－－－－－－－－－－－－－－－
+{txt}
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+
+
+'''
 
     def __init__(self, path=None):
         self.entries = []
@@ -42,19 +55,10 @@ class BinaryText(object):
     def export_text(self, path):
         result = []
         for e in self.entries:
-            fmt = '''No.%d
-Label: {lbl}
-－－－－－－－－－－－－－－－－－－－－
-{txt}
-－－－－－－－－－－－－－－－－－－－－
-{txt}
-＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
-
-
-'''%len(result)
+            fmt = self.EXPORT_FMT % len(result)
             result.append(e.ToString(fmt))
 
-        codecs.open(path, 'w', 'utf-16').write(''.join(result))
+        open(path, 'w', encoding='utf-16').write(''.join(result))
 
         return result
 
@@ -80,12 +84,14 @@ Label: {lbl}
 
         mg = fs.read(4)
         if mg != self.Magic:
-            raise FileTypeError("Except magic: %s, actual (hex): %s"%(self.Magic, binascii.b2a_hex(mg)))
-        
+            raise FileTypeError("Except magic: %s, actual (hex): %s" % (
+                self.Magic, binascii.b2a_hex(mg)))
+
         ver = fs.read(4)
         if ver != self.Version:
-            raise FileVersionError("Supportted version: %s, input file version: %s"%(self.verstr(), self.verstr(ver)))
-        
+            raise FileVersionError("Supportted version: %s, input file version: %s" % (
+                self.verstr(), self.verstr(ver)))
+
         while True:
             lbl = readstrzt(lblrdr)
             txt = readstrzt(txtrdr)
@@ -95,9 +101,9 @@ Label: {lbl}
 
             entry = BinaryTextEntry(lbl, txt)
             self.entries.append(entry)
-        
+
         fs.close()
-    
+
     def save(self, path):
         fs = open(path, 'wb')
         fs.write(self.Magic)
@@ -109,7 +115,8 @@ Label: {lbl}
     def verstr(self, bstr=None):
         if not bstr:
             bstr = self.Version
-        return '%d.%d.%d-%d'%struct.unpack_from('bbbb', bstr)
+        return '%d.%d.%d-%d' % struct.unpack_from('bbbb', bstr)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -118,10 +125,11 @@ def main():
     group.add_argument('-x', '--export', help='Export messages.',
                        action='store_true', default=False)
     group.add_argument('-c', '--create', help='Convert plain text to binary text.',
-                        action='store_true', default=False)
+                       action='store_true', default=False)
     parser.add_argument('-b', '--binary', help="Set binary text file.")
     parser.add_argument('-p', '--plain', help='Set plain text file.')
-    parser.add_argument('-m', '--mkdir', help='Make directory for output.', action='store_true', default=False)
+    parser.add_argument('-m', '--mkdir', help='Make directory for output.',
+                        action='store_true', default=False)
     options = parser.parse_args()
 
     if options.export:
@@ -135,6 +143,7 @@ def main():
         btxt = BinaryText()
         btxt.from_text(options.plain)
         btxt.save(options.binary)
+
 
 if '__main__' == __name__:
     main()
