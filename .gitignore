@@ -1,3 +1,7 @@
 temp
 *.pyc
 __pycache__
+
+.vs
+bin
+obj
