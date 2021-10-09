@@ -83,7 +83,7 @@ class MFont(object):
             "RGBA", (1024, int(self.font_size*self.entry_count/(1024/self.font_size))))
 
         x = 0
-        y = 10
+        y = self.font_size
         for i in range(len(self.entries)):
             cim = img.crop(self.entries[i].box)
             # x += self.entries[i].attr1
