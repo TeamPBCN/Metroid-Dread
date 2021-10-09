@@ -140,7 +140,6 @@ class MetroidFontGlyph(object):
         icon_path = os.path.join(os.path.dirname(
             os.path.abspath(__file__)), 'icons', '%04x.png' % ord(icon_id))
         if os.path.isfile(icon_path):
-            print('Load icon from file: '+icon_path)
             mfg.image = Image.open(icon_path)
             mfg.packer_item = greedypacker.Item(
                 mfg.image.width, mfg.image.height, rotation=False)
@@ -267,16 +266,17 @@ class MetroidFontCollection(object):
 
     def save(self, glyph_table_path: str, bfont_path_format: str, texture_path: str,
              glyph_table_path_in_game: str = None, texture_path_in_game: str = None):
-        self.chars = sorted(self.chars)
+        chars = sorted(self.chars)
+        chars.extend(sorted(self.icons.keys()))
         self.remap()
 
         # Save glyph table
         with open(glyph_table_path, 'wb') as buct:
             # Write header
             buct.write(struct.pack('<4sbbbbiiq', b'MUCT', *(1, 0, 4, 0),
-                       len(self.chars), -1, 0x18))
-            for i in range(len(self.chars)):
-                buct.write(struct.pack('<Hhi', ord(self.chars[i]), -1, i))
+                       len(chars), -1, 0x18))
+            for i in range(len(chars)):
+                buct.write(struct.pack('<Hhi', ord(chars[i]), -1, i))
 
         # Save bfonts
         for k in self.fonts.keys():
@@ -301,7 +301,7 @@ class MetroidFontCollection(object):
                     bfont.write(b'\xFF')
                 font.glyph_data_offset = bfont.tell()
 
-                for c in self.chars:
+                for c in chars:
                     if c not in font.glyphs:
                         break  # Should break
                     glyph: MetroidFontGlyph = font.glyphs[c]
@@ -347,7 +347,6 @@ class MetroidFontCollection(object):
             icon.xadv = ICONS[i][2]
 
             mfc.icons[c] = icon
-            mfc.chars.append(c)
 
         return mfc
 

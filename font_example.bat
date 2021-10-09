@@ -1,4 +1,4 @@
-python3 .\tools\scripts\font.py create --ttf-path ".\temp\fzmh.ttf" --charset-path ".\temp\simplified_chinese.txt" --gtbl-path ".\temp\chc_glyphtable.buct" --bfnt-path-fmt ".\temp\chc_{}.bfont" --mtxt-path ".\temp\chc_atlas.bctex" --mtxt-width 4096 --mtxt-height 2048 --gtbl-path-ingame "system/fonts/symbols/chc_glyphtable.buct" --mtxt-path-ingame "system/fonts/textures/chc_atlas.bctex" --32 .\temp\simplified_chinese.txt --52 .\temp\simplified_chinese.txt --32-useicon
+python3 .\tools\scripts\font.py create --ttf-path ".\temp\a.ttf" --charset-path ".\temp\simplified_chinese.txt" --gtbl-path ".\temp\chc_glyphtable.buct" --bfnt-path-fmt ".\temp\chc_{}.bfont" --mtxt-path ".\temp\chc_atlas.bctex" --mtxt-width 4096 --mtxt-height 2048 --gtbl-path-ingame "system/fonts/symbols/chc_glyphtable.buct" --mtxt-path-ingame "system/fonts/textures/chc_atlas.bctex" --32 .\temp\simplified_chinese.txt --32-useicon --52 .\temp\simplified_chinese.txt --52-ttf ".\temp\b.ttf"
 .\tools\bin\mtxttool.exe -ig .\temp\chc_atlas.png -t .\temp\chc_atlas.bctex .\temp\orign\Romfs\textures\system\fonts\textures\chc_atlas.bctex
 
 set FONTDIR=temp\010093801237C000\romfs\system\fonts
