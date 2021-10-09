@@ -10,6 +10,62 @@ from freetype import FT_LOAD_FLAGS, Face
 from PIL import Image
 
 
+ICONS = {
+    0x1800: (-1, 30, 34),
+    0x1801: (-1, 30, 34),
+    0x1802: (-1, 30, 34),
+    0x1803: (-1, 30, 34),
+    0x1804: (-1, 30, 34),
+    0x1805: (-1, 30, 34),
+    0x1806: (-1, 30, 34),
+    0x1807: (-1, 30, 34),
+    0x1808: (-1, 30, 34),
+    0x1809: (-1, 30, 34),
+    0x180a: (-1, 30, 34),
+    0x180b: (-1, 30, 34),
+    0x180c: (-1, 30, 34),
+    0x180d: (-1, 30, 34),
+    0x180e: (-1, 30, 34),
+    0x180f: (-1, 30, 34),
+    0x1810: (-1, 30, 34),
+    0x1811: (-1, 39, 52),
+    0x1812: (-1, 30, 34),
+    0x1813: (-1, 30, 34),
+    0x1815: (-1, 30, 34),
+    0x1816: (-1, 39, 52),
+    0x1817: (-1, 39, 52),
+    0x1818: (-1, 39, 52),
+    0x1819: (-1, 39, 52),
+    0x181a: (-1, 39, 52),
+    0x181b: (-1, 39, 52),
+    0x181c: (-1, 39, 52),
+    0x181d: (-1, 36, 47),
+    0x181e: (-1, 59, 92),
+    0x181f: (-1, 59, 92),
+    0x1820: (-1, 59, 92),
+    0x1821: (-1, 36, 47),
+    0x1822: (-1, 59, 92),
+    0x1823: (-1, 59, 92),
+    0x1824: (-1, 59, 92),
+    0x1825: (-1, 39, 52),
+    0x1826: (-1, 59, 92),
+    0x1827: (-1, 59, 92),
+    0x1828: (-1, 59, 92),
+    0x1829: (-1, 30, 34),
+    0x182a: (-1, 39, 52),
+    0x182e: (-1, 30, 34),
+    0x182f: (-14, 41, 32),
+    0x1830: (-14, 41, 32),
+    0x1832: (-1, 30, 34),
+    0x1834: (-14, 41, 32),
+    0x1837: (-1, 30, 34),
+    0x1838: (-1, 30, 34),
+    0x1839: (-1, 30, 34),
+    0x1840: (-1, 30, 34),
+    0x1841: (-1, 30, 34),
+}
+
+
 def f26d6_to_int(val):
     ret = (abs(val) & 0x7FFFFFC0) >> 6
     if val < 0:
@@ -51,8 +107,38 @@ class MetroidFontGlyph(object):
     def new(c, font: Face):
         mfg = MetroidFontGlyph()
 
+        flags = FT_LOAD_FLAGS['FT_LOAD_RENDER'] | FT_LOAD_FLAGS['FT_LOAD_NO_HINTING'] | FT_LOAD_FLAGS['FT_LOAD_NO_HINTING']
+        font.load_char(c, flags)
+
+        glyphslot = font.glyph
+        bitmap = glyphslot.bitmap
+        adv = f26d6_to_int(glyphslot.metrics.horiAdvance)
+        horiBearingX = f26d6_to_int(glyphslot.metrics.horiBearingX)
+        horiBearingY = f26d6_to_int(glyphslot.metrics.horiBearingY)
+        gheight = f26d6_to_int(glyphslot.metrics.height)
+
+        if bitmap.width == 0 or bitmap.rows == 0:
+            mfg.image = Image.new(mode='LA', size=(4, 4))
+        else:
+            pixel_data = struct.pack(
+                'B'*len(bitmap.buffer)*2, *(x for pix in ((a, a) for a in bitmap.buffer) for x in pix))
+            mfg.image = Image.frombuffer(mode='LA', size=(
+                bitmap.width, bitmap.rows), data=pixel_data)
+
+        mfg.packer_item = greedypacker.Item(
+            mfg.image.width, mfg.image.height, rotation=False)
+
+        mfg.xoffset = horiBearingX
+        mfg.yoffset = horiBearingY
+        mfg.xadv = adv
+
+        return mfg
+
+    @staticmethod
+    def new_icon(icon_id):
+        mfg = MetroidFontGlyph()
         icon_path = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), 'icons', '%04x.png' % ord(c))
+            os.path.abspath(__file__)), 'icons', '%04x.png' % ord(icon_id))
         if os.path.isfile(icon_path):
             print('Load icon from file: '+icon_path)
             mfg.image = Image.open(icon_path)
@@ -61,33 +147,9 @@ class MetroidFontGlyph(object):
             mfg.xoffset = -1
             mfg.yoffset = 30
             mfg.xadv = 34
+            return mfg
         else:
-            flags = FT_LOAD_FLAGS['FT_LOAD_RENDER'] | FT_LOAD_FLAGS['FT_LOAD_NO_HINTING'] | FT_LOAD_FLAGS['FT_LOAD_NO_HINTING']
-            font.load_char(c, flags)
-
-            glyphslot = font.glyph
-            bitmap = glyphslot.bitmap
-            adv = f26d6_to_int(glyphslot.metrics.horiAdvance)
-            horiBearingX = f26d6_to_int(glyphslot.metrics.horiBearingX)
-            horiBearingY = f26d6_to_int(glyphslot.metrics.horiBearingY)
-            gheight = f26d6_to_int(glyphslot.metrics.height)
-
-            if bitmap.width == 0 or bitmap.rows == 0:
-                mfg.image = Image.new(mode='LA', size=(4, 4))
-            else:
-                pixel_data = struct.pack(
-                    'B'*len(bitmap.buffer)*2, *(x for pix in ((a, a) for a in bitmap.buffer) for x in pix))
-                mfg.image = Image.frombuffer(mode='LA', size=(
-                    bitmap.width, bitmap.rows), data=pixel_data)
-
-            mfg.packer_item = greedypacker.Item(
-                mfg.image.width, mfg.image.height, rotation=False)
-
-            mfg.xoffset = horiBearingX
-            mfg.yoffset = horiBearingY
-            mfg.xadv = adv
-
-        return mfg
+            raise FileNotFoundError(icon_path)
 
 
 class MetroidFont(object):
@@ -165,6 +227,7 @@ class MetroidFontCollection(object):
 
         self.fonts = {}
         self.chars = []
+        self.icons = {}
 
         self.texture_size = (0, 0)
         self.font_path = ''
@@ -178,11 +241,16 @@ class MetroidFontCollection(object):
             font = self.fonts[k]
             font.add_char(c)
 
-    def add_font(self, size, filter, font_path=None):
+    def add_font(self, size, filter, font_path=None, use_icon=False):
         if not font_path:
             font_path = self.font_path
-        self.fonts[size] = MetroidFont.new(
+        mfnt = MetroidFont.new(
             size, font_path, self.texture_size, filter)
+        self.fonts[size] = mfnt
+        if use_icon:
+            print('Use icon')
+            for k in self.icons:
+                mfnt.glyphs[k] = self.icons[k]
 
     def remap(self):
         print('Remapping...')
@@ -234,6 +302,8 @@ class MetroidFontCollection(object):
                 font.glyph_data_offset = bfont.tell()
 
                 for c in self.chars:
+                    if c not in font.glyphs:
+                        break  # Should break
                     glyph: MetroidFontGlyph = font.glyphs[c]
                     bfont.write(struct.pack('<hhhhhhh', glyph.packer_item.x, glyph.packer_item.y,
                                 glyph.packer_item.width, glyph.packer_item.height, glyph.xoffset, glyph.yoffset, glyph.xadv))
@@ -267,6 +337,18 @@ class MetroidFontCollection(object):
         mfc = MetroidFontCollection()
         mfc.font_path = font_path
         mfc.texture_size = texture_size
+
+        # Load icons
+        for i in ICONS.keys():
+            c = chr(i)
+            icon = MetroidFontGlyph.new_icon(c)
+            icon.xoffset = ICONS[i][0]
+            icon.yoffset = ICONS[i][1]
+            icon.xadv = ICONS[i][2]
+
+            mfc.icons[c] = icon
+            mfc.chars.append(c)
+
         return mfc
 
 
@@ -276,19 +358,20 @@ class Actions(object):
                gtbl_path_ingame=None, mtxt_path_ingame=None, **kwargs):
         mfnc = MetroidFontCollection.new(ttf_path, (mtxt_width, mtxt_height))
         for kw in kwargs:
-            if '-ttf' in kw:
+            if '_ttf' in kw or '_useicon' in kw:
                 continue
 
             size = int(kw)
             filter = open(kwargs[kw], 'r', encoding='utf-16').read()
             font_path = None
-            if kw+'-ttf' in kwargs:
-                font_path = kwargs[kw+'-ttf']
+            if kw+'_ttf' in kwargs:
+                font_path = kwargs[kw+'_ttf']
             print('Add font size: %d, filter: %s' % (size, kwargs[kw]))
-            mfnc.add_font(size, filter, font_path)
+            mfnc.add_font(size, filter, font_path, kw+'_useicon' in kwargs)
 
-        charset = set(list(open(charset_path, 'r', encoding='utf-16').read()))
         i = 1
+        charset = set((c for c in open(charset_path, 'r',
+                      encoding='utf-16').read() if ord(c) not in ICONS))
         for c in charset:
             sys.stdout.write("Adding chars...(%d/%d)\r" % (i, len(charset)))
             mfnc.add_char(c)
