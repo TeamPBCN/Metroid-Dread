@@ -66,7 +66,7 @@ class MFont(object):
             im = img.crop(self.entries[i].box)
             path = '%d.png' % i
             if char_table:
-                path = '%s.png' % chr(char_table[i])
+                path = '%04x.png' % char_table[i]
             path = os.path.join(out_dir, path)
             try:
                 if not os.path.exists(out_dir):
@@ -100,13 +100,13 @@ class MFont(object):
 class CharTable(object):
     def __init__(self, path):
         fs = open(path, 'rb')
-        (magic, version, entries_cnt, tbl_offset) = struct.unpack(
-            '4siii', fs.read(16))
+        (magic, version, entries_cnt, _, tbl_offset) = struct.unpack(
+            '4siiiq', fs.read(24))
         fs.seek(tbl_offset, 0)
 
         self.entries = {}
         for i in range(entries_cnt):
-            char, id = struct.unpack('ii', fs.read(8))
+            char, _, id = struct.unpack('Hhi', fs.read(8))
             self.entries[id] = char
 
     @property
@@ -114,10 +114,26 @@ class CharTable(object):
         return list(self.entries.values())
 
 
-def render(mfnt, png, png_out):
-    MFont(mfnt).render_chars(png_out, png)
+class Actions(object):
+    @staticmethod
+    def render(mfnt, png, png_out):
+        MFont(mfnt).render_chars(png_out, png)
+
+    @staticmethod
+    def export(mfnt_path, img_path, out_dir, char_table):
+        char_table = CharTable(char_table)
+        mfnt = MFont(mfnt_path)
+        mfnt.export_images(img_path, out_dir, char_table.entries)
+
+    @staticmethod
+    def dump_mapping(mfnt_path, buct_path):
+        buct = CharTable(buct_path)
+        mfnt = MFont(mfnt_path)
+        for i in sorted(buct.entries.keys()):
+            e = mfnt.entries[i]
+            print('0x%04x : (%d, %d, %d)'%(buct.entries[i], e.attr1, e.attr2, e.attr3))
 
 
 if __name__ == "__main__":
     import fire
-    fire.Fire(render)
+    fire.Fire(Actions)

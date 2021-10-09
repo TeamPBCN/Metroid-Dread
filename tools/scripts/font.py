@@ -1,6 +1,7 @@
 import struct
 import sys
-from os import SEEK_SET, pardir, stat
+import os
+from os import SEEK_SET
 from io import BytesIO
 
 import freetype
@@ -49,30 +50,43 @@ class MetroidFontGlyph(object):
     @staticmethod
     def new(c, font: Face):
         mfg = MetroidFontGlyph()
-        flags = FT_LOAD_FLAGS['FT_LOAD_RENDER'] | FT_LOAD_FLAGS['FT_LOAD_NO_HINTING']
-        font.load_char(c, flags)
 
-        glyphslot = font.glyph
-        bitmap = glyphslot.bitmap
-        adv = f26d6_to_int(glyphslot.metrics.horiAdvance)
-        horiBearingX = f26d6_to_int(glyphslot.metrics.horiBearingX)
-        horiBearingY = f26d6_to_int(glyphslot.metrics.horiBearingY)
-        gheight = f26d6_to_int(glyphslot.metrics.height)
-
-        if bitmap.width == 0 or bitmap.rows == 0:
-            mfg.image = Image.new(mode='LA', size=(4, 4))
+        icon_path = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), 'icons', '%04x.png' % ord(c))
+        if os.path.isfile(icon_path):
+            print('Load icon from file: '+icon_path)
+            mfg.image = Image.open(icon_path)
+            mfg.packer_item = greedypacker.Item(
+                mfg.image.width, mfg.image.height, rotation=False)
+            mfg.xoffset = -1
+            mfg.yoffset = 30
+            mfg.xadv = 34
         else:
-            pixel_data = struct.pack(
-                'B'*len(bitmap.buffer)*2, *(x for pix in ((a, a) for a in bitmap.buffer) for x in pix))
-            mfg.image = Image.frombuffer(mode='LA', size=(
-                bitmap.width, bitmap.rows), data=pixel_data)
+            flags = FT_LOAD_FLAGS['FT_LOAD_RENDER'] | FT_LOAD_FLAGS['FT_LOAD_NO_HINTING'] | FT_LOAD_FLAGS['FT_LOAD_NO_HINTING']
+            font.load_char(c, flags)
 
-        mfg.packer_item = greedypacker.Item(
-            mfg.image.width, mfg.image.height, rotation=False)
+            glyphslot = font.glyph
+            bitmap = glyphslot.bitmap
+            adv = f26d6_to_int(glyphslot.metrics.horiAdvance)
+            horiBearingX = f26d6_to_int(glyphslot.metrics.horiBearingX)
+            horiBearingY = f26d6_to_int(glyphslot.metrics.horiBearingY)
+            gheight = f26d6_to_int(glyphslot.metrics.height)
 
-        mfg.xoffset = horiBearingX
-        mfg.yoffset = horiBearingY
-        mfg.xadv = adv
+            if bitmap.width == 0 or bitmap.rows == 0:
+                mfg.image = Image.new(mode='LA', size=(4, 4))
+            else:
+                pixel_data = struct.pack(
+                    'B'*len(bitmap.buffer)*2, *(x for pix in ((a, a) for a in bitmap.buffer) for x in pix))
+                mfg.image = Image.frombuffer(mode='LA', size=(
+                    bitmap.width, bitmap.rows), data=pixel_data)
+
+            mfg.packer_item = greedypacker.Item(
+                mfg.image.width, mfg.image.height, rotation=False)
+
+            mfg.xoffset = horiBearingX
+            mfg.yoffset = horiBearingY
+            mfg.xadv = adv
+
         return mfg
 
 
@@ -90,7 +104,7 @@ class MetroidFont(object):
         self.glyph_count = 0
         self.unk3 = -1
         self.glyph_data_offset = 0
-        self.glyph_data_size = 0
+        self.glyph_table_path = 0
         self.glyphs = {}
 
         self.font_face = None
@@ -137,7 +151,7 @@ class MetroidFont(object):
     def new(font_size, font_path, texture_size, chars_filter):
         mfnt = MetroidFont()
 
-        mfnt.font_size = font_size
+        mfnt.font_size = font_size+4
         mfnt.texture_size = texture_size
         mfnt.filter = chars_filter
         mfnt.init_fontface(font_path)
@@ -164,9 +178,11 @@ class MetroidFontCollection(object):
             font = self.fonts[k]
             font.add_char(c)
 
-    def add_font(self, size, filter):
+    def add_font(self, size, filter, font_path=None):
+        if not font_path:
+            font_path = self.font_path
         self.fonts[size] = MetroidFont.new(
-            size, self.font_path, self.texture_size, filter)
+            size, font_path, self.texture_size, filter)
 
     def remap(self):
         print('Remapping...')
@@ -181,7 +197,8 @@ class MetroidFontCollection(object):
             raise ValueError(
                 "Too many chars, try to trim the font size using filters")
 
-    def save(self, glyph_table_path: str, bfont_path_format: str, texture_path: str):
+    def save(self, glyph_table_path: str, bfont_path_format: str, texture_path: str,
+             glyph_table_path_in_game: str = None, texture_path_in_game: str = None):
         self.chars = sorted(self.chars)
         self.remap()
 
@@ -203,12 +220,15 @@ class MetroidFontCollection(object):
                     '<'+MetroidFont.HEADER_STRUCTURE, font.magic, *font.version,
                     font.texture_path_offset, *font.texture_size,
                     font.unk1, font.unk2, font.font_size, font.glyph_count, font.unk3,
-                    font.glyph_data_offset, font.glyph_data_size))
+                    font.glyph_data_offset, font.glyph_table_path))
 
                 font.texture_path_offset = bfont.tell()
-                bfont.write(texture_path.encode('utf-16le'))
+                if texture_path_in_game:
+                    bfont.write(texture_path_in_game.encode('utf-8'))
+                else:
+                    bfont.write(texture_path.encode('utf-8'))
                 bfont.write(b'\x00')
-                # align
+                # align?
                 while bfont.tell() % 0x10 != 0:
                     bfont.write(b'\xFF')
                 font.glyph_data_offset = bfont.tell()
@@ -217,7 +237,12 @@ class MetroidFontCollection(object):
                     glyph: MetroidFontGlyph = font.glyphs[c]
                     bfont.write(struct.pack('<hhhhhhh', glyph.packer_item.x, glyph.packer_item.y,
                                 glyph.packer_item.width, glyph.packer_item.height, glyph.xoffset, glyph.yoffset, glyph.xadv))
-                font.glyph_data_size = bfont.tell() - font.glyph_data_offset
+                font.glyph_table_path = bfont.tell()
+                if glyph_table_path_in_game:
+                    bfont.write(glyph_table_path_in_game.encode('utf-8'))
+                else:
+                    bfont.write(glyph_table_path.encode('utf-8'))
+                bfont.write(b'\x00')
 
                 bfont.seek(0, SEEK_SET)
                 # Write updated header
@@ -225,7 +250,7 @@ class MetroidFontCollection(object):
                     '<'+MetroidFont.HEADER_STRUCTURE, font.magic, *font.version,
                     font.texture_path_offset, *font.texture_size,
                     font.unk1, font.unk2, font.font_size, font.glyph_count, font.unk3,
-                    font.glyph_data_offset, font.glyph_data_size))
+                    font.glyph_data_offset, font.glyph_table_path))
 
         # Save texture
         glyphs = (glyph for glyphs in (font.glyphs.values()
@@ -247,13 +272,20 @@ class MetroidFontCollection(object):
 
 class Actions(object):
     @staticmethod
-    def create(ttf_path, charset_path, gtbl_path, bfnt_path_fmt, mtxt_path, mtxt_width, mtxt_height, **kwargs):
+    def create(ttf_path, charset_path, gtbl_path, bfnt_path_fmt, mtxt_path, mtxt_width, mtxt_height,
+               gtbl_path_ingame=None, mtxt_path_ingame=None, **kwargs):
         mfnc = MetroidFontCollection.new(ttf_path, (mtxt_width, mtxt_height))
         for kw in kwargs:
+            if '-ttf' in kw:
+                continue
+
             size = int(kw)
             filter = open(kwargs[kw], 'r', encoding='utf-16').read()
+            font_path = None
+            if kw+'-ttf' in kwargs:
+                font_path = kwargs[kw+'-ttf']
             print('Add font size: %d, filter: %s' % (size, kwargs[kw]))
-            mfnc.add_font(size, filter)
+            mfnc.add_font(size, filter, font_path)
 
         charset = set(list(open(charset_path, 'r', encoding='utf-16').read()))
         i = 1
@@ -263,7 +295,8 @@ class Actions(object):
             i += 1
         print('')
 
-        mfnc.save(gtbl_path, bfnt_path_fmt, mtxt_path)
+        mfnc.save(gtbl_path, bfnt_path_fmt, mtxt_path,
+                  gtbl_path_ingame, mtxt_path_ingame)
 
 
 if __name__ == '__main__':
