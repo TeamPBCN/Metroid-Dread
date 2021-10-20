@@ -256,7 +256,7 @@ class MetroidFontCollection(object):
         glyphs = (glyph for glyphs in (font.glyphs.values()
                   for font in self.fonts.values()) for glyph in glyphs)
         bin_man = greedypacker.BinManager(
-            self.texture_size[0], self.texture_size[1], pack_algo='guillotine', heuristic='best_longside', rotation=False)
+            self.texture_size[0], self.texture_size[1], pack_algo='skyline', heuristic='bottom_left', rotation=False)
         bin_man.add_items(*(glyph.packer_item for glyph in glyphs))
         bin_man.execute()
 
